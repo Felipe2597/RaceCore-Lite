@@ -72,24 +72,27 @@ function save(){try{localStorage.setItem(KEY,JSON.stringify(state));}catch{/* of
 function hasSimulation(){return state.results.some(r=>Object.values(r).some(Boolean))||state.factors.some(f=>f!==1);}
 function renderInputs(){
   $('inputs').innerHTML=roster().map(c=>`<tr class="${c.id==='100'?'focus':''}"><td>${carLabel(c)}</td><td>${Object.keys(c.history).filter(k=>k!=='geral').map(k=>LABELS[k]).join(' + ')||'Geral'}</td>${[0,1].map(seg=>`<td><select aria-label="Carro ${esc(c.id)} segmento ${seg===0?'inicial':'final'}" data-id="${esc(c.id)}" data-seg="${seg}"><option value="">—</option>${Array.from({length:roster().length},(_,i)=>`<option value="${i+1}">P${i+1}</option>`).join('')}${['NC','DNS','DQ','SUS'].map(s=>`<option value="${s}">${s}</option>`).join('')}</select></td>`).join('')}</tr>`).join('');
-  $('inputs').querySelectorAll('select').forEach(el=>{el.value=state.results[Number(el.dataset.seg)][el.dataset.id]||'';el.disabled=state.factors[Number(el.dataset.seg)]===0;});
+  $('inputs').querySelectorAll('select').forEach(el=>{el.value=state.results[Number(el.dataset.seg)][el.dataset.id]||'';el.disabled=state.factors[Number(el.dataset.seg)]===0||Boolean(state.liveLocks?.[Number(el.dataset.seg)]); });
 }
 function render(){
+  [0,1].forEach(i=>$('factor'+i).disabled=Boolean(state.liveLocks?.[i]));$('distance').disabled=Boolean(state.liveLocks?.some(Boolean));
   const sim=hasSimulation(), final=complete(0)&&complete(1)&&sim;
-  $('mode').textContent=final?'Projeção final':sim?'Simulação parcial':'Classificação atual';
+  $('mode').textContent=(typeof autoChamp!=='undefined'&&autoChamp)?'Projeção ao vivo':final?'Projeção final':sim?'Simulação parcial':'Classificação atual';
   $('warning').textContent=sim&&!final?'Projeção parcial: preencha todos os carros e use posições consecutivas. Sport/Rookie ficam pendentes quando há posições gerais vazias à frente. Nenhum título é confirmado com dados incompletos.':final?'Cenário completo para a lista informada. Confirme os resultados oficiais, inscritos, elegibilidade e eventuais desempates.':'Aguardando os resultados de Interlagos. Nenhum segmento futuro entra no descarte.';
   const current = Object.fromEntries(CATS.map(cat=>[cat,standings(cat)]));
   $('cards').innerHTML=CATS.map(cat=>{
     const r=current[cat].find(x=>x.car.id==='100');const base=standings(cat,initialState(),BASE).find(x=>x.car.id==='100');
     const delta=r.net-base.net;
-    const result=final?(r.tie?'Empate a confirmar':r.rank===1?'Campeão no cenário':'P'+r.rank+' no cenário'):sim?'Projeção parcial':'Classificação líquida';
+    const result=(typeof autoChamp!=='undefined'&&autoChamp)?'Projeção ao vivo · não oficial':final?(r.tie?'Empate a confirmar':r.rank===1?'Campeão no cenário':'P'+r.rank+' no cenário'):sim?'Projeção parcial · não oficial':'Classificação líquida';
     return `<article class="card"><div class="eyebrow">${LABELS[cat]}</div><div class="big">P${r.rank}${r.tie?'*':''}</div><div class="pts">${fmt(r.net)} pts</div><div class="sub">${r.gap===0?'Na liderança':'−'+fmt(r.gap)+' do líder'}</div><div class="sub">${sim?`Saldo ${delta>=0?'+':''}${fmt(delta)} pts · `:''}${result}</div></article>`;
   }).join('');
   $('standings').innerHTML=current[state.cat].map(r=>`<tr class="${r.car.id==='100'?'focus':''}"><td><strong>P${r.rank}${r.tie?'*':''}</strong></td><td>${carLabel(r.car)}</td>${r.segments.map((s,i)=>`<td class="${i===r.discard?'discard':''}" title="${SEGMENTS[i]}${i===r.discard?' — descartado':''}">${s.points===null?'—':s.status==='OK'||s.status==='0'?fmt(s.points):esc(s.status)}</td>`).join('')}<td>${fmt(r.gross)}</td><td>−${fmt(r.drop)}</td><td class="net">${fmt(r.net)}</td><td>${r.gap?'−'+fmt(r.gap):'—'}</td></tr>`).join('');
   $('tabs').querySelectorAll('button').forEach(b=>{b.classList.toggle('active',b.dataset.cat===state.cat);b.setAttribute('aria-pressed',String(b.dataset.cat===state.cat));});
   save();
+  if(typeof renderRanges==='function')renderRanges();
 }
 function setPosition(id,seg,next){
+  if(state.liveLocks?.[seg])return;
   const vals=state.results[seg],old=vals[id]||'';
   if(isPosition(next)){
     const other=Object.keys(vals).find(k=>k!==id&&Number(vals[k])===Number(next));
@@ -104,7 +107,7 @@ function boot(){
   $('inputs').addEventListener('change',e=>{const el=e.target;if(!el.matches('select'))return;setPosition(el.dataset.id,Number(el.dataset.seg),el.value);renderInputs();render();});
   $('tabs').addEventListener('click',e=>{const cat=e.target.dataset.cat;if(CATS.includes(cat)){state.cat=cat;render();}});
   $('fill').addEventListener('click',()=>{const order=standings('geral',initialState(),roster());state.results=[{},{}];order.forEach((r,i)=>[0,1].forEach(s=>state.results[s][r.car.id]=String(i+1)));renderInputs();render();});
-  $('reset').addEventListener('click',()=>{const cat=state.cat;state=initialState();state.cat=cat;$('distance').value=state.distance;[0,1].forEach(i=>$('factor'+i).value=1);renderInputs();render();});
+  $('reset').addEventListener('click',()=>{const cat=state.cat,extras=state.extras;state=initialState();state.cat=cat;state.extras=extras;$('distance').value=state.distance;[0,1].forEach(i=>$('factor'+i).value=1);renderInputs();render();});
   $('add').addEventListener('submit',e=>{e.preventDefault();const id=String(Number($('newId').value)),name=$('newName').value.trim(),cat=$('newCat').value;if(!name||!Number.isInteger(Number(id))||Number(id)<1||roster().some(c=>c.id===id)){alert('Informe um número novo e um nome válido.');return;}const categories=['geral',...(cat==='both'?['sport','rookie']:cat==='geral'?[]:[cat])];state.extras.push({id,drivers:[name],history:Object.fromEntries(categories.map(c=>[c,Array.from({length:4},()=>zero('DNS'))]))});e.target.reset();renderInputs();render();});
   renderInputs();render();
 }
