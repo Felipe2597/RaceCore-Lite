@@ -1,4 +1,4 @@
-# RaceCore Lite — Beta 0.7
+# RaceCore Lite — Beta 0.7.1
 
 Projeto independente da Carrera. Abra index.html no navegador ou use Live Server no VS Code. XML, campeonato e Excel não requerem bibliotecas externas. OCR opcional carrega Tesseract.js 5.1.1 pela internet.
 
@@ -49,3 +49,9 @@ A estrutura XML foi baseada em amostra Cronotracker da F4 (campos label/result).
 - Feche manualmente cada segmento após confirmar classificação, 75%, penalidades e inscritos. O inicial não muda na segunda parte. Ao fechar o inicial, a projeção final começa vazia.
 - Posição de pista é projeção, não resultado oficial. Feed inválido, carros desconhecidos, erro de conexão ou sessão inadequada preservam o último cenário e avisam. Pausar permite editar; Kosmi continua manual.
 - Ao recarregar, o modo automático fica desligado e os segmentos congelados são preservados. A contagem de tempo desde a leitura não prova que o servidor está atualizado.
+
+## 0.7.1 — revisão de operação
+- Abre em Championship; status de atualidade visível acima dos cartões. Fonte XML configurável e salva por aparelho.
+- Bloqueia fechamento ao vivo com classificação inválida, antiga ou conexão pausada. Para fechar manualmente, pause e confirme os resultados.
+- Faixas de possibilidades do título durante modo ao vivo tratam segmentos abertos como indefinidos. Posições atuais seguem sendo projeções.
+- Cada aparelho deve ativar a projeção e fechar os segmentos independentemente; não há sincronização de estado.
